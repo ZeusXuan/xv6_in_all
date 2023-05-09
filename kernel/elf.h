@@ -6,16 +6,16 @@
 struct elfhdr {
   uint magic;  // must equal ELF_MAGIC
   uchar elf[12];
-  ushort type;
+  ushort type; 
   ushort machine;
   uint version;
-  uint64 entry;
-  uint64 phoff;
+  uint64 entry;// program entry point
+  uint64 phoff;// program header offset
   uint64 shoff;
   uint flags;
   ushort ehsize;
   ushort phentsize;
-  ushort phnum;
+  ushort phnum;// num of program header
   ushort shentsize;
   ushort shnum;
   ushort shstrndx;
@@ -28,8 +28,8 @@ struct proghdr {
   uint64 off;
   uint64 vaddr;
   uint64 paddr;
-  uint64 filesz;
-  uint64 memsz;
+  uint64 filesz;//holds the number of bytes in the file image of the segment.  
+  uint64 memsz;//This member holds the number of bytes in the memory image of the segment.
   uint64 align;
 };
 

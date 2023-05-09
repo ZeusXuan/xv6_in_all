@@ -10,6 +10,7 @@ volatile static int started = 0;
 void
 main()
 {
+  // cpu0执行以下初始化
   if(cpuid() == 0){
     consoleinit();
     printfinit();
@@ -28,7 +29,7 @@ main()
     iinit();         // inode table
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
-    userinit();      // first user process
+    userinit();      // here create first user process
     __sync_synchronize();
     started = 1;
   } else {

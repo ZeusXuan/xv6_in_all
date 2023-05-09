@@ -33,6 +33,7 @@ fetchstr(uint64 addr, char *buf, int max)
 static uint64
 argraw(int n)
 {
+  // 用于fetch系统调用的寄存器
   struct proc *p = myproc();
   switch (n) {
   case 0:
@@ -131,15 +132,19 @@ static uint64 (*syscalls[])(void) = {
 void
 syscall(void)
 {
+  
   int num;
   struct proc *p = myproc();
 
+  //调用system call时将中断号放在a7寄存器中
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
+    // 将返回值保存在a0中
     p->trapframe->a0 = syscalls[num]();
   } else {
+    // 系统调用不存在时返回-1
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
     p->trapframe->a0 = -1;

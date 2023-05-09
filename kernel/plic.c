@@ -11,14 +11,17 @@
 void
 plicinit(void)
 {
+  // 将UART和VIRTIO的优先级都设为1
   // set desired IRQ priorities non-zero (otherwise disabled).
   *(uint32*)(PLIC + UART0_IRQ*4) = 1;
   *(uint32*)(PLIC + VIRTIO0_IRQ*4) = 1;
 }
 
+// 对单个核进行初始化
 void
 plicinithart(void)
 {
+  // no SMP cpu in QEMU,so target is based on the cpuid and interrupt mode
   int hart = cpuid();
   
   // set enable bits for this hart's S-mode

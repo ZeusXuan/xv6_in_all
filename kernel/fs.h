@@ -25,34 +25,37 @@ struct superblock {
 #define FSMAGIC 0x10203040
 
 #define NDIRECT 12
+// 二阶索引块中包含的inode数量
 #define NINDIRECT (BSIZE / sizeof(uint))
+//12个一阶索引加1个二阶索引, MAXFILE is max number of the biggest file
 #define MAXFILE (NDIRECT + NINDIRECT)
 
 // On-disk inode structure
 struct dinode {
   short type;           // File type
-  short major;          // Major device number (T_DEVICE only)
-  short minor;          // Minor device number (T_DEVICE only)
-  short nlink;          // Number of links to inode in file system
+  short major;          // Major device number, represent type of device (T_DEVICE only)
+  short minor;          // Minor device number, represent which device (T_DEVICE only)
+  short nlink;          // Number of links to inode in file system, hard links
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
 };
 
-// Inodes per block.
+// Inodes per block (一块所能包含的inode数)
 #define IPB           (BSIZE / sizeof(struct dinode))
 
-// Block containing inode i
+// Block containing inode i(包含inode i的块)
 #define IBLOCK(i, sb)     ((i) / IPB + sb.inodestart)
 
-// Bitmap bits per block
+// Bitmap bits per block (一块所能包含的bit数)
 #define BPB           (BSIZE*8)
 
-// Block of free map containing bit for block b
+// Block of free map containing bit for block b (第b个data块所在的bit map)
 #define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
 
-// Directory is a file containing a sequence of dirent structures.
+// Directory is a file containing a sequence of dirent structures.(目录名的最大上限)
 #define DIRSIZ 14
 
+// 目录项的结构 16byte对齐
 struct dirent {
   ushort inum;
   char name[DIRSIZ];

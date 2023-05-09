@@ -2,7 +2,7 @@
 // Console input and output, to the uart.
 // Reads are line at a time.
 // Implements special input characters:
-//   newline -- end of line
+//   newline (enter) -- end of line
 //   control-h -- backspace
 //   control-u -- kill line
 //   control-d -- end of file
@@ -22,7 +22,7 @@
 #include "defs.h"
 #include "proc.h"
 
-#define BACKSPACE 0x100
+#define BACKSPACE 0x100 // enter
 #define C(x)  ((x)-'@')  // Control-x
 
 //
@@ -41,6 +41,7 @@ consputc(int c)
   }
 }
 
+// console input buffer
 struct {
   struct spinlock lock;
   

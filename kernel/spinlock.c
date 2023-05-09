@@ -51,7 +51,7 @@ release(struct spinlock *lk)
 
   lk->cpu = 0;
 
-  // Tell the C compiler and the CPU to not move loads or stores
+  // Tell the C compiler and the CPU to not move loads or stores（不要做内存相关指令）
   // past this point, to ensure that all the stores in the critical
   // section are visible to other CPUs before the lock is released,
   // and that loads in the critical section occur strictly before
@@ -77,6 +77,7 @@ int
 holding(struct spinlock *lk)
 {
   int r;
+  // 是否被当前cpu所holding
   r = (lk->locked && lk->cpu == mycpu());
   return r;
 }
@@ -88,10 +89,13 @@ holding(struct spinlock *lk)
 void
 push_off(void)
 {
+  // 先获取硬件中断状态
   int old = intr_get();
-
+  // intr_off是硬件层面直接关中断，push_off需要考虑之前的中断状态
   intr_off();
+  // noff is nested intr off
   if(mycpu()->noff == 0)
+    // intena is intr enabled before
     mycpu()->intena = old;
   mycpu()->noff += 1;
 }
@@ -105,6 +109,7 @@ pop_off(void)
   if(c->noff < 1)
     panic("pop_off");
   c->noff -= 1;
+  // 当之前就是开中断，并且nest为0时
   if(c->noff == 0 && c->intena)
     intr_on();
 }

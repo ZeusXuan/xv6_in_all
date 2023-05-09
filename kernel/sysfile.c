@@ -34,6 +34,7 @@ argfd(int n, int *pfd, struct file **pf)
   return 0;
 }
 
+// 分配一个fd给给定的文件
 // Allocate a file descriptor for the given file.
 // Takes over file reference from caller on success.
 static int
@@ -119,6 +120,7 @@ sys_fstat(void)
   return filestat(f, st);
 }
 
+// Create the hard link
 // Create the path new as a link to the same inode as old.
 uint64
 sys_link(void)
@@ -131,12 +133,14 @@ sys_link(void)
 
   begin_op();
   if((ip = namei(old)) == 0){
+    // old path not exist
     end_op();
     return -1;
   }
 
   ilock(ip);
   if(ip->type == T_DIR){
+    // 不能为目录创造hard link
     iunlockput(ip);
     end_op();
     return -1;
@@ -242,6 +246,7 @@ bad:
   return -1;
 }
 
+// create a file to path
 static struct inode*
 create(char *path, short type, short major, short minor)
 {
@@ -253,6 +258,7 @@ create(char *path, short type, short major, short minor)
 
   ilock(dp);
 
+  // already have a file in dir
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
@@ -273,6 +279,7 @@ create(char *path, short type, short major, short minor)
   ip->nlink = 1;
   iupdate(ip);
 
+  // 在创建一个目录时首先添加.和..项
   if(type == T_DIR){  // Create . and .. entries.
     // No ip->nlink++ for ".": avoid cyclic ref count.
     if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
@@ -310,13 +317,17 @@ sys_open(void)
   struct inode *ip;
   int n;
 
+  // fetch file permission
   argint(1, &omode);
+  // fetch path
   if((n = argstr(0, path, MAXPATH)) < 0)
     return -1;
 
   begin_op();
 
+  // creat or find inode
   if(omode & O_CREATE){
+    // if no inode
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
       end_op();
@@ -349,6 +360,7 @@ sys_open(void)
     return -1;
   }
 
+  // 设置file 内容
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;
     f->major = ip->major;
@@ -370,6 +382,7 @@ sys_open(void)
   return fd;
 }
 
+// make a dir in path
 uint64
 sys_mkdir(void)
 {
@@ -406,6 +419,7 @@ sys_mknod(void)
   return 0;
 }
 
+// change process current dir
 uint64
 sys_chdir(void)
 {
@@ -415,10 +429,12 @@ sys_chdir(void)
   
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
+  // 没有找到path对应的inode
     end_op();
     return -1;
   }
   ilock(ip);
+  // 如果这个inode指向regular file
   if(ip->type != T_DIR){
     iunlockput(ip);
     end_op();
@@ -450,10 +466,12 @@ sys_exec(void)
     if(fetchaddr(uargv+sizeof(uint64)*i, (uint64*)&uarg) < 0){
       goto bad;
     }
+    // when uarg == 0 means the last arg.
     if(uarg == 0){
       argv[i] = 0;
       break;
     }
+    // alloc one page for one arg str
     argv[i] = kalloc();
     if(argv[i] == 0)
       goto bad;
@@ -470,6 +488,7 @@ sys_exec(void)
 
  bad:
   for(i = 0; i < NELEM(argv) && argv[i] != 0; i++)
+  // free every arg page
     kfree(argv[i]);
   return -1;
 }
@@ -483,9 +502,11 @@ sys_pipe(void)
   struct proc *p = myproc();
 
   argaddr(0, &fdarray);
+  // 分配pipe, 返回两个struct file
   if(pipealloc(&rf, &wf) < 0)
     return -1;
   fd0 = -1;
+  // 分配fd
   if((fd0 = fdalloc(rf)) < 0 || (fd1 = fdalloc(wf)) < 0){
     if(fd0 >= 0)
       p->ofile[fd0] = 0;
@@ -493,6 +514,7 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
+  // 将分配给pipe两端的fd返回到fdarray中
   if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
      copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
     p->ofile[fd0] = 0;

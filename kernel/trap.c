@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 
+// tickslock protect ticks,which means time now
 struct spinlock tickslock;
 uint ticks;
 
@@ -47,6 +48,7 @@ usertrap(void)
 
   struct proc *p = myproc();
   
+  //sepc为硬件保存的pc，而需要将其保存在用户进程的结构之中
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
@@ -58,21 +60,25 @@ usertrap(void)
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
+    // system call 需要 pc + 1
     p->trapframe->epc += 4;
 
     // an interrupt will change sepc, scause, and sstatus,
     // so enable only now that we're done with those registers.
+    // 在system call内部也开中断，可以发生kernal trap
     intr_on();
 
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
+    // kill 错误发出中断的进程
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     setkilled(p);
   }
 
+  // now the killed process can exit
   if(killed(p))
     exit(-1);
 
@@ -117,6 +123,7 @@ usertrapret(void)
   w_sstatus(x);
 
   // set S Exception Program Counter to the saved user pc.
+  // 这里epc可能加1或者不变
   w_sepc(p->trapframe->epc);
 
   // tell trampoline.S the user page table to switch to.
@@ -126,6 +133,7 @@ usertrapret(void)
   // switches to the user page table, restores user registers,
   // and switches to user mode with sret.
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
+  // a0表示satp
   ((void (*)(uint64))trampoline_userret)(satp);
 }
 
@@ -145,6 +153,7 @@ kerneltrap()
     panic("kerneltrap: interrupts enabled");
 
   if((which_dev = devintr()) == 0){
+    //未知内核中断报错
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");
@@ -181,6 +190,7 @@ devintr()
 
   if((scause & 0x8000000000000000L) &&
      (scause & 0xff) == 9){
+    // 这是PLIC产生的外部中断
     // this is a supervisor external interrupt, via PLIC.
 
     // irq indicates which device interrupted.

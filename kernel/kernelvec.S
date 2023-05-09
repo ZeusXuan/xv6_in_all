@@ -10,7 +10,9 @@
 .globl kernelvec
 .align 4
 kernelvec:
+        # 此处sp为内核栈
         # make room to save registers.
+        # 将内核中断存储到内核栈中
         addi sp, sp, -256
 
         # save the registers.
@@ -99,6 +101,7 @@ timervec:
         # scratch[32] : desired interval between interrupts.
         
         csrrw a0, mscratch, a0
+        # 保存要使用的寄存器
         sd a1, 0(a0)
         sd a2, 8(a0)
         sd a3, 16(a0)
@@ -113,9 +116,11 @@ timervec:
 
         # arrange for a supervisor software interrupt
         # after this handler returns.
+        # 在mret后产生一个S mode 的软件中断(sip 表示 supervisor interrupt pending)
         li a1, 2
         csrw sip, a1
 
+        # 恢复保存的寄存器
         ld a3, 16(a0)
         ld a2, 8(a0)
         ld a1, 0(a0)

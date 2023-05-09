@@ -12,7 +12,9 @@ struct proc proc[NPROC];
 
 struct proc *initproc;
 
+// 用于下一个进程的pid
 int nextpid = 1;
+// guard nextpid
 struct spinlock pid_lock;
 
 extern void forkret(void);
@@ -26,7 +28,7 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
+// Allocate a page for each process's kernel stack.(每个进程拥有一个内核栈)
 // Map it high in memory, followed by an invalid
 // guard page.
 void
@@ -38,6 +40,7 @@ proc_mapstacks(pagetable_t kpgtbl)
     char *pa = kalloc();
     if(pa == 0)
       panic("kalloc");
+    // KSTACK返回内核栈的虚拟地址
     uint64 va = KSTACK((int) (p - proc));
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
@@ -52,8 +55,11 @@ procinit(void)
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
+      // 初始化每一个进程锁
       initlock(&p->lock, "proc");
+      // 设置状态
       p->state = UNUSED;
+      // 设置指向内核栈的指针
       p->kstack = KSTACK((int) (p - proc));
   }
 }
@@ -61,6 +67,7 @@ procinit(void)
 // Must be called with interrupts disabled,
 // to prevent race with process being moved
 // to a different CPU.
+// 必须关中断才能使用
 int
 cpuid()
 {
@@ -70,6 +77,7 @@ cpuid()
 
 // Return this CPU's cpu struct.
 // Interrupts must be disabled.
+// 必须关中断
 struct cpu*
 mycpu(void)
 {
@@ -88,7 +96,7 @@ myproc(void)
   pop_off();
   return p;
 }
-
+// 互斥的访问顺序分配下一个pid
 int
 allocpid()
 {
@@ -256,6 +264,7 @@ userinit(void)
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
+// 可以增长也可以减小heap
 int
 growproc(int n)
 {
@@ -283,6 +292,7 @@ fork(void)
   struct proc *np;
   struct proc *p = myproc();
 
+  // 分配一个pid
   // Allocate process.
   if((np = allocproc()) == 0){
     return -1;
@@ -299,7 +309,7 @@ fork(void)
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  // Cause fork to return 0 in the child.
+  // Cause fork to return 0 in the child.(a0 save system call return data)
   np->trapframe->a0 = 0;
 
   // increment reference counts on open file descriptors.
@@ -308,20 +318,24 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  // 进程名相同
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
 
+  // acquire the child lock in allocproc()
   release(&np->lock);
 
   acquire(&wait_lock);
   np->parent = p;
   release(&wait_lock);
 
+  // 设置为RUNNABLE后可以被调度
   acquire(&np->lock);
   np->state = RUNNABLE;
   release(&np->lock);
 
+  // 父进程返回子进程的pid
   return pid;
 }
 
@@ -334,6 +348,7 @@ reparent(struct proc *p)
 
   for(pp = proc; pp < &proc[NPROC]; pp++){
     if(pp->parent == p){
+      // 将所有的子进程指向init
       pp->parent = initproc;
       wakeup(initproc);
     }
@@ -343,6 +358,7 @@ reparent(struct proc *p)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
+// In Unix, status 0~255 used to communicate other process (signal).
 void
 exit(int status)
 {
@@ -375,6 +391,7 @@ exit(int status)
   
   acquire(&p->lock);
 
+  // status 传递给父进程
   p->xstate = status;
   p->state = ZOMBIE;
 
@@ -408,6 +425,7 @@ wait(uint64 addr)
         if(pp->state == ZOMBIE){
           // Found one.
           pid = pp->pid;
+          // Copy the exit status to addr
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&pp->xstate,
                                   sizeof(pp->xstate)) < 0) {
             release(&pp->lock);
@@ -416,7 +434,7 @@ wait(uint64 addr)
           }
           freeproc(pp);
           release(&pp->lock);
-          release(&wait_lock);
+          release(&wait_lock); 
           return pid;
         }
         release(&pp->lock);
@@ -499,11 +517,13 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+// yield 意为让路，放弃
 void
 yield(void)
 {
   struct proc *p = myproc();
   acquire(&p->lock);
+  // 放回就绪队列
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
@@ -527,6 +547,7 @@ forkret(void)
     fsinit(ROOTDEV);
   }
 
+  // fork()完成后返回
   usertrapret();
 }
 
@@ -569,6 +590,7 @@ wakeup(void *chan)
   struct proc *p;
 
   for(p = proc; p < &proc[NPROC]; p++) {
+    // 对当前的进程一定不能做处理
     if(p != myproc()){
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
@@ -652,6 +674,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   }
 }
 
+// P:打印进程信息
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.

@@ -56,12 +56,14 @@ sys_sleep(void)
 
   argint(0, &n);
   acquire(&tickslock);
+  // ticks is global shared data,means "time now"
   ticks0 = ticks;
   while(ticks - ticks0 < n){
     if(killed(myproc())){
       release(&tickslock);
       return -1;
     }
+    // chan is the ticks
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);

@@ -25,6 +25,7 @@
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
 
+// 在机器模式下
 // core local interruptor (CLINT), which contains the timer.
 #define CLINT 0x2000000L
 #define CLINT_MTIMECMP(hartid) (CLINT + 0x4000 + 8*(hartid))

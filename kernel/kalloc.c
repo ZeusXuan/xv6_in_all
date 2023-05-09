@@ -1,6 +1,6 @@
 // Physical memory allocator, for user processes,
 // kernel stacks, page-table pages,
-// and pipe buffers. Allocates whole 4096-byte pages.
+// and pipe buffers. Allocates whole 4096-byte(4KB) pages.
 
 #include "types.h"
 #include "param.h"
@@ -48,6 +48,7 @@ kfree(void *pa)
 {
   struct run *r;
 
+  // pa must be not pagebound and between end and PHYSTOP
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
@@ -57,6 +58,7 @@ kfree(void *pa)
   r = (struct run*)pa;
 
   acquire(&kmem.lock);
+  // free后加入头部
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
@@ -73,6 +75,7 @@ kalloc(void)
   acquire(&kmem.lock);
   r = kmem.freelist;
   if(r)
+  // alloc时将空闲块从头部取出
     kmem.freelist = r->next;
   release(&kmem.lock);
 

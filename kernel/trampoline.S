@@ -24,13 +24,15 @@ uservec:
         # traps from user space start here,
         # in supervisor mode, but with a
         # user page table.
-        #
+        # 此时属于内核态但是使用的还是用户页表（即还在用户地址空间）
 
         # save user a0 in sscratch so
         # a0 can be used to get at TRAPFRAME.
+        # sscratch寄存器用于临时存储a0
         csrw sscratch, a0
 
         # each process has a separate p->trapframe memory area,
+        # 因为所有的进程的地址空间都具有trapframe的位置都相同
         # but it's mapped to the same virtual address
         # (TRAPFRAME) in every process's user page table.
         li a0, TRAPFRAME

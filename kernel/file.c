@@ -14,7 +14,9 @@
 #include "proc.h"
 
 struct devsw devsw[NDEV];
+// 系统文件打开表
 struct {
+  // protect ref in struct file
   struct spinlock lock;
   struct file file[NFILE];
 } ftable;
@@ -108,6 +110,7 @@ fileread(struct file *f, uint64 addr, int n)
 {
   int r = 0;
 
+ //该文件不允许读
   if(f->readable == 0)
     return -1;
 
@@ -116,8 +119,10 @@ fileread(struct file *f, uint64 addr, int n)
   } else if(f->type == FD_DEVICE){
     if(f->major < 0 || f->major >= NDEV || !devsw[f->major].read)
       return -1;
+    // 调用特定device的读函数
     r = devsw[f->major].read(1, addr, n);
   } else if(f->type == FD_INODE){
+    // 如果是常规文件或者目录
     ilock(f->ip);
     if((r = readi(f->ip, 1, addr, f->off, n)) > 0)
       f->off += r;
@@ -136,6 +141,7 @@ filewrite(struct file *f, uint64 addr, int n)
 {
   int r, ret = 0;
 
+  // 该文件不允许写
   if(f->writable == 0)
     return -1;
 
@@ -152,6 +158,7 @@ filewrite(struct file *f, uint64 addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
+    // max为允许写入的最多的块
     int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
     int i = 0;
     while(i < n){
@@ -159,6 +166,7 @@ filewrite(struct file *f, uint64 addr, int n)
       if(n1 > max)
         n1 = max;
 
+      // 这是一个事务
       begin_op();
       ilock(f->ip);
       if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)

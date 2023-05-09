@@ -23,6 +23,7 @@ acquiresleep(struct sleeplock *lk)
 {
   acquire(&lk->lk);
   while (lk->locked) {
+    // 释放锁，等待wakeup
     sleep(lk, &lk->lk);
   }
   lk->locked = 1;
@@ -36,6 +37,7 @@ releasesleep(struct sleeplock *lk)
   acquire(&lk->lk);
   lk->locked = 0;
   lk->pid = 0;
+  // 重新获取锁
   wakeup(lk);
   release(&lk->lk);
 }
@@ -46,6 +48,7 @@ holdingsleep(struct sleeplock *lk)
   int r;
   
   acquire(&lk->lk);
+  // 如果锁已经被获取，则返回拥有ta的pid
   r = lk->locked && (lk->pid == myproc()->pid);
   release(&lk->lk);
   return r;

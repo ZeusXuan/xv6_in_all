@@ -7,6 +7,7 @@
 #include "fs.h"
 #include "buf.h"
 
+// 用于处理FS system call 的并发
 // Simple logging that allows concurrent FS system calls.
 //
 // A log transaction contains the updates of multiple FS system
@@ -20,7 +21,7 @@
 // the count of in-progress FS system calls and returns.
 // But if it thinks the log is close to running out, it
 // sleeps until the last outstanding end_op() commits.
-//
+// 
 // The log is a physical re-do log containing disk blocks.
 // The on-disk log format:
 //   header block, containing block #s for block A, B, C, ...
@@ -33,8 +34,8 @@
 // Contents of the header block, used for both the on-disk header block
 // and to keep track in memory of logged block# before commit.
 struct logheader {
-  int n;
-  int block[LOGSIZE];
+  int n; // 写入on-disk log的块数
+  int block[LOGSIZE]; // which block is on-disk log?
 };
 
 struct log {
@@ -58,9 +59,11 @@ initlog(int dev, struct superblock *sb)
     panic("initlog: too big logheader");
 
   initlock(&log.lock, "log");
+  // 从超级块中初始化log
   log.start = sb->logstart;
   log.size = sb->nlog;
   log.dev = dev;
+  // reboot之后需要重新redo来保持数据一致性
   recover_from_log();
 }
 
@@ -103,6 +106,7 @@ static void
 write_head(void)
 {
   struct buf *buf = bread(log.dev, log.start);
+  // 强制类型转换
   struct logheader *hb = (struct logheader *) (buf->data);
   int i;
   hb->n = log.lh.n;
@@ -129,8 +133,10 @@ begin_op(void)
   acquire(&log.lock);
   while(1){
     if(log.committing){
+      // 此时log正在提交, 等待提交完后的wakeup
       sleep(&log, &log.lock);
     } else if(log.lh.n + (log.outstanding+1)*MAXOPBLOCKS > LOGSIZE){
+      // 此时剩余的log空间不够了
       // this op might exhaust log space; wait for commit.
       sleep(&log, &log.lock);
     } else {
@@ -159,6 +165,7 @@ end_op(void)
     // begin_op() may be waiting for log space,
     // and decrementing log.outstanding has decreased
     // the amount of reserved space.
+    // 唤醒其他等待的FS system call
     wakeup(&log);
   }
   release(&log.lock);
@@ -169,6 +176,7 @@ end_op(void)
     commit();
     acquire(&log.lock);
     log.committing = 0;
+    // 提交完成后唤醒
     wakeup(&log);
     release(&log.lock);
   }
@@ -223,6 +231,7 @@ log_write(struct buf *b)
     panic("log_write outside of trans");
 
   for (i = 0; i < log.lh.n; i++) {
+    // 如果已经写入in-memory log
     if (log.lh.block[i] == b->blockno)   // log absorption
       break;
   }

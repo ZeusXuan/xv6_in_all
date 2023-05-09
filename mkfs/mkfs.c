@@ -1,3 +1,6 @@
+/* Included by xv6, runs on host compoter to
+create disk image file. It used by QEMU to emulate the disk
+and initialize the disk*/
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>

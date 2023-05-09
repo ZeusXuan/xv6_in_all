@@ -1,11 +1,12 @@
 struct file {
+  // 文件类型 INODE类型又包含了两种regular file和dictionary file
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
-  int ref; // reference count
-  char readable;
-  char writable;
+  int ref; // reference count or the number of hard links
+  char readable; // pipe read end is only readable
+  char writable; // pipe write end is only writable
   struct pipe *pipe; // FD_PIPE
   struct inode *ip;  // FD_INODE and FD_DEVICE
-  uint off;          // FD_INODE
+  uint off;          // FD_INODE, where next write or read begin?
   short major;       // FD_DEVICE
 };
 
@@ -18,7 +19,7 @@ struct inode {
   uint dev;           // Device number
   uint inum;          // Inode number
   int ref;            // Reference count
-  struct sleeplock lock; // protects everything below here
+  struct sleeplock lock; // protects everything below here and off in file struct
   int valid;          // inode has been read from disk?
 
   short type;         // copy of disk inode
@@ -29,6 +30,7 @@ struct inode {
   uint addrs[NDIRECT+1];
 };
 
+// 将device的种类和device read write function进行映射
 // map major device number to device functions.
 struct devsw {
   int (*read)(int, uint64, int);

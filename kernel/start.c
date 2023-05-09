@@ -22,20 +22,25 @@ start()
 {
   // set M Previous Privilege mode to Supervisor, for mret.
   unsigned long x = r_mstatus();
+  // 为了mret指令（从machine mode 切换到 supervisor mode）
   x &= ~MSTATUS_MPP_MASK;
   x |= MSTATUS_MPP_S;
   w_mstatus(x);
 
   // set M Exception Program Counter to main, for mret.
   // requires gcc -mcmodel=medany
+  // 切换到supervisor mode后 pc指向main函数 
   w_mepc((uint64)main);
 
   // disable paging for now.
+  // 不允许分页
   w_satp(0);
 
   // delegate all interrupts and exceptions to supervisor mode.
+  // 将所有的exeception（同步）和interrupt（异步）授权给S mode，即在S mode下进行处理
   w_medeleg(0xffff);
   w_mideleg(0xffff);
+  // 允许所有类型的中断
   w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 
   // configure Physical Memory Protection to give supervisor mode
@@ -44,6 +49,7 @@ start()
   w_pmpcfg0(0xf);
 
   // ask for clock interrupts.
+  // 初始化时钟
   timerinit();
 
   // keep each CPU's hartid in its tp register, for cpuid().

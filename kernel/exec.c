@@ -50,13 +50,17 @@ exec(char *path, char **argv)
     goto bad;
 
   // Load program into memory.
+  // Walk through each program header
   for(i=0, off=elf.phoff; i<elf.phnum; i++, off+=sizeof(ph)){
+    // read inode of program header
     if(readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
     if(ph.type != ELF_PROG_LOAD)
+    // 该段不需要load
       continue;
     if(ph.memsz < ph.filesz)
       goto bad;
+    // avoid uint overflow
     if(ph.vaddr + ph.memsz < ph.vaddr)
       goto bad;
     if(ph.vaddr % PGSIZE != 0)
@@ -72,6 +76,7 @@ exec(char *path, char **argv)
   end_op();
   ip = 0;
 
+  // 
   p = myproc();
   uint64 oldsz = p->sz;
 
@@ -83,6 +88,7 @@ exec(char *path, char **argv)
   if((sz1 = uvmalloc(pagetable, sz, sz + 2*PGSIZE, PTE_W)) == 0)
     goto bad;
   sz = sz1;
+  // make guard page invalid
   uvmclear(pagetable, sz-2*PGSIZE);
   sp = sz;
   stackbase = sp - PGSIZE;
@@ -103,6 +109,7 @@ exec(char *path, char **argv)
 
   // push the array of argv[] pointers.
   sp -= (argc+1) * sizeof(uint64);
+  // align
   sp -= sp % 16;
   if(sp < stackbase)
     goto bad;

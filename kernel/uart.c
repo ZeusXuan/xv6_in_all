@@ -22,8 +22,8 @@
 #define RHR 0                 // receive holding register (for input bytes)
 #define THR 0                 // transmit holding register (for output bytes)
 #define IER 1                 // interrupt enable register
-#define IER_RX_ENABLE (1<<0)
-#define IER_TX_ENABLE (1<<1)
+#define IER_RX_ENABLE (1<<0)  // receive interrupt
+#define IER_TX_ENABLE (1<<1)  // transmit interrupt
 #define FCR 2                 // FIFO control register
 #define FCR_FIFO_ENABLE (1<<0)
 #define FCR_FIFO_CLEAR (3<<1) // clear the content of the two FIFOs
@@ -41,7 +41,7 @@
 // the transmit output buffer.
 struct spinlock uart_tx_lock;
 #define UART_TX_BUF_SIZE 32
-char uart_tx_buf[UART_TX_BUF_SIZE];
+char uart_tx_buf[UART_TX_BUF_SIZE]; // output buffer (uart_transmit_buffer)
 uint64 uart_tx_w; // write next to uart_tx_buf[uart_tx_w % UART_TX_BUF_SIZE]
 uint64 uart_tx_r; // read next from uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE]
 
@@ -126,6 +126,7 @@ uartputc_sync(int c)
   pop_off();
 }
 
+// used after uartputc
 // if the UART is idle, and a character is waiting
 // in the transmit buffer, send it.
 // caller must hold uart_tx_lock.
@@ -146,6 +147,7 @@ uartstart()
       return;
     }
     
+    // read a char from transmit buffer to uart
     int c = uart_tx_buf[uart_tx_r % UART_TX_BUF_SIZE];
     uart_tx_r += 1;
     
